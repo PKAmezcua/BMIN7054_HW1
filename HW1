@@ -1,0 +1,208 @@
+###############################################################
+# IMPORT LIBRARIES ############################################
+###############################################################
+library(MASS)
+library(ggplot2)
+###############################################################
+# IMPORT DATASET ##############################################
+###############################################################
+data <- MASS::birthwt
+###############################################################
+# 1. What is the size of the dataset? 
+# Show the top six rows of the dataset.
+###############################################################
+str(data)
+# 'data.frame':	189 obs. of  10 variables:
+# $ low  : int  0 0 0 0 0 0 0 0 0 0 ...
+# $ age  : int  19 33 20 21 18 21 22 17 29 26 ...
+# $ lwt  : int  182 155 105 108 107 124 118 103 123 113 ...
+# $ race : int  2 3 1 1 1 3 1 3 1 1 ...
+# $ smoke: int  0 0 1 1 1 0 0 0 1 1 ...
+# $ ptl  : int  0 0 0 0 0 0 0 0 0 0 ...
+# $ ht   : int  0 0 0 0 0 0 0 0 0 0 ...
+# $ ui   : int  1 0 0 1 1 0 0 0 0 0 ...
+# $ ftv  : int  0 3 1 2 0 0 1 1 1 0 ...
+# $ bwt  : int  2523 2551 2557 2594 2600 2622 2637 2637 2663 2665 ...
+
+head(data)
+# low age lwt race smoke ptl ht ui ftv  bwt
+# 85   0  19 182    2     0   0  0  1   0 2523
+# 86   0  33 155    3     0   0  0  0   3 2551
+# 87   0  20 105    1     1   0  0  0   1 2557
+# 88   0  21 108    1     1   0  0  1   2 2594
+# 89   0  18 107    1     1   0  0  1   0 2600
+
+###############################################################
+# 2. Understand the data. Describe the meaning of each variable.
+###############################################################
+data$low # Indicator for low birthweight (< 2.5 kg)
+         # 1: < 2.5 kg
+         # 0: >= 2.5 kg
+data$age # Mother's age (years)
+data$lwt # Mother's weight at last menstral period (pounds)
+data$race # Mother's race (1: white, 2: black, 3: other)
+data$smoke # Did the mother smoke during pregnancy
+         # 1: Yes
+         # 0: No
+data$ptl # Quantity of past pre-term births by mother (int)
+data$ht # History of hypertention
+         # 1: Yes
+         # 0: No
+data$ui # MotherPresence of mother uterine irritability
+         # # 1: Yes
+         # 0: No
+data$ftv # Quantity of physician visits by mother throughout
+         # the 1st trimester
+data$bwt # Child birthweight (grams)
+
+###############################################################
+# 3. Create a new dataset.
+# Determine the nature or data type or class of each variable.
+###############################################################
+data_1 <- data[ , -10]
+
+apply(data_1, 2, class)
+# low       age       lwt      race     smoke       ptl        
+# "integer" "integer" "integer" "integer" "integer" "integer" 
+
+# ht        ui       ftv 
+# "integer" "integer" "integer" 
+###############################################################
+# 4. ‘race’ is ternary. Change it into a categorical (factor) variable.
+# Count how many whites, blacks, and others are in the study. 
+###############################################################
+data_1$race <- as.factor(data_1$race)
+apply(data_1, 2, class)
+# race
+# "character"
+table(data_1$race)
+# 1  2  3 
+# 96 26 67
+# white: 96
+# black: 26
+# other: 67
+
+###############################################################
+# 5. Postulate a logistic regression model with ‘low’ as response variable 
+# and the remaining as predictors. This is population model.
+###############################################################
+population_model <- glm(low ~ ., binomial, data = data_1)
+summary(population_model)
+
+# Deviance Residuals: 
+#   Min       1Q   Median       3Q      Max  
+# -1.8946  -0.8212  -0.5316   0.9818   2.2125  
+
+# Coefficients:
+#              Estimate Std. Error z value Pr(>|z|)   
+# (Intercept)  0.480623   1.196888   0.402  0.68801   
+# age         -0.029549   0.037031  -0.798  0.42489   
+# lwt         -0.015424   0.006919  -2.229  0.02580 * 
+# race2        1.272260   0.527357   2.413  0.01584 * 
+# race3        0.880496   0.440778   1.998  0.04576 * 
+# smoke        0.938846   0.402147   2.335  0.01957 * 
+# ptl          0.543337   0.345403   1.573  0.11571   
+# ht           1.863303   0.697533   2.671  0.00756 **
+# ui           0.767648   0.459318   1.671  0.09467 . 
+# ftv          0.065302   0.172394   0.379  0.70484   
+
+###############################################################
+# 6. Fit the model to the data. Write the prediction equation. 
+###############################################################
+predicted.data <- data.frame(
+  liklihood.of.low = population_model$fitted.values,
+  low = data_1$low)
+
+predicted.data <- predicted.data[
+  order(predicted.data$liklihood.of.low, decreasing = FALSE),
+]
+
+predicted.data$rank <- 1:nrow(predicted.data)
+dev.off()
+
+ggplot(predicted.data, aes(x = rank, y = liklihood.of.low)) +
+  geom_point(aes(color=low), alpha=1, shape=4, stroke=2) +
+  xlab("Index") +
+  ylab("Predicted Liklihood of Child with Low Birth Weight")
+
+# PREDICTION EQUATION WITH ALL PREDICTORS
+# low = 0.480623 + (-0.029549 * age) + (-0.015424 * lwt) + (1.272260 * race2) +
+#      (0.880496 * race3) + (0.938846 * smoke) + (0.543337 * ptl) + 
+#      (1.863303 * ht) + (0.767648 * ui) + (0.065302 * ftv)
+
+# PREDICTION EQUATION WITH SIGNIFICANT PREDICTORS ONLY
+# low = 0.480623 + (-0.015424 * lwt) + (1.272260 * race2) +
+#      (0.880496 * race3) + (0.938846 * smoke) + (1.863303 * ht)
+
+###############################################################
+# 7. Which predictors are significant? Interpret the coefficients associated 
+#    with ‘race.’ 
+###############################################################
+# SIGNIFICANT PREDICTORS: 'lwt', 'race2', 'race3', 'smoke', 'ht'
+
+# Predictor 'race' is significant for predicting liklihood for low birth weight.
+# More specifically, coefficients are the log(odd ratio) and tells us if
+# data_1$race == '1' OR '2' INCREASES the likelihood the child to be low == 1
+# by adjusting by the respective coefficient, according to the model.
+# Similar to how we adjust a line on a graph by the line's slope (m)
+# in y = m * x + b.
+
+###############################################################
+# 8. Interpret the coefficients in simple terms.
+###############################################################
+# age         -0.029549   (NON-SIGNIFICANT)
+#       DECREASES likelihood child will be low birth weight
+# lwt         -0.015424   (SIGNIFICANT)
+#       DECREASES likelihood child will be low birth weight
+# race2        1.272260   (SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+# race3        0.880496   (SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+# smoke        0.938846   (SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+# ptl          0.543337   (NON-SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+# ht           1.863303   (VERY SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight by a lot
+# ui           0.767648   (NON-SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+# ftv          0.065302   (NON-SIGNIFICANT)
+#       INCREASES likelihood child will be low birth weight
+
+###############################################################
+# 9. Lay out the odds ratios along with their 95% confidence intervals.
+###############################################################
+exp(cbind("Odds ratio" = coef(population_model), 
+          confint.default(population_model, level = 0.95)))
+#              Odds ratio     2.5 %     97.5 %
+# (Intercept)  1.6170819 0.1548601 16.8859134
+# age          0.9708833 0.9029139  1.0439692
+# lwt          0.9846941 0.9714303  0.9981389
+# race2        3.5689085 1.2695450 10.0328131
+# race3        2.4120956 1.0167259  5.7224913
+# smoke        2.5570281 1.1625923  5.6239773
+# ptl          1.7217428 0.8749046  3.3882532
+# ht           6.4449886 1.6424073 25.2908503
+# ui           2.1546928 0.8758167  5.3009961
+# ftv          1.0674812 0.7614096  1.4965875        
+
+###############################################################
+# 10. Work out the confusion matrix. Determine the misclassification rate.
+###############################################################
+
+###############################################################
+# 11. Summarize your findings in a few lines.
+###############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
